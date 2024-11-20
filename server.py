@@ -275,11 +275,11 @@ async def main():
         server = await websockets.serve(
             handle_connection,
             "0.0.0.0",
-            8084,
+            8085,
             ping_interval=60,  # Интервал между пингами (в секундах)
             ping_timeout=30,  # Время ожидания ответа на пинг (в секундах)
         )
-        print("WebSocket server started on ws://0.0.0.0:8084")
+        print("WebSocket server started on ws://0.0.0.0:8085")
         await server.wait_closed()
     except Exception as e:
         logger.error(f"Error starting WebSocket server: {e}")
