@@ -92,6 +92,6 @@ if __name__ == "__main__":
     import uvicorn
 
     try:
-        uvicorn.run(app, host="0.0.0.0", port=8085, log_level="info")
+        uvicorn.run(app, host="0.0.0.0", port=8086, log_level="info")
     except Exception as e:
         logger.error(f"Error starting FastAPI server: {e}")
