@@ -275,7 +275,7 @@ async def main():
         server = await websockets.serve(
             handle_connection,
             "0.0.0.0",
-            8083,
+            8084,
             ping_interval=60,  # Интервал между пингами (в секундах)
             ping_timeout=30,  # Время ожидания ответа на пинг (в секундах)
         )
