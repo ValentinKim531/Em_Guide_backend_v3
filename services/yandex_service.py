@@ -1,4 +1,7 @@
 import asyncio
+import base64
+import json
+
 import ffmpeg
 import tempfile
 import httpx
@@ -75,85 +78,104 @@ def convert_mp3_to_aac(input_mp3, output_aac):
         print(f"Error: {e.stderr.decode('utf8')}")
 
 
-def synthesize_speech(text, lang_code):
+async def synthesize_speech(
+    text
+):
+    voice = "marina"
+    pitch_shift = 130
+    speed = 1.2
+    emotion = "friendly"
+    volume = 0.9
+    lang_code = "ru-RU"
+
     try:
         logger.info(
-            f"Starting synthesis for text: '{text[:100]}' with lang_code: '{lang_code}'"
+            f"Starting synthesis for text: '{text[:100]}', lang_code: '{lang_code}', voice: '{voice}', "
+            f"pitch_shift: {pitch_shift}, speed: {speed}, emotion: '{emotion}', volume: {volume}"
         )
-        voice_settings = {
-            "ru": {"lang": "ru-RU", "voice": "jane", "emotion": "good"},
-            "kk": {"lang": "kk-KK", "voice": "amira", "emotion": "neutral"},
+
+        url = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
+        headers = {
+            "Authorization": f"Bearer {YANDEX_IAM_TOKEN}",
+            "x-folder-id": YANDEX_FOLDER_ID,
+            "Content-Type": "application/json; charset=utf-8",
         }
-        settings = voice_settings.get(lang_code, voice_settings["ru"])
-        url = "https://tts.api.cloud.yandex.net/speech/v1/tts:synthesize"
-        headers = {"Authorization": f"Bearer {YANDEX_IAM_TOKEN}"}
 
         data = {
             "text": text,
-            "lang": settings["lang"],
-            "voice": settings["voice"],
-            "emotion": settings["emotion"],
-            "folderId": YANDEX_FOLDER_ID,
-            "format": "mp3",
-            "sampleRateHertz": 48000,
-            "speed": "1.2",
+            "hints": [
+                {"speed": speed},  # Скорость речи
+                {"voice": voice},  # Выбор голоса
+                {"role": emotion},  # Эмоция речи
+                {"pitchShift": pitch_shift},  # Изменение тембра
+                {"volume": volume},  # Громкость речи
+            ],
+            "outputAudioSpec": {
+                "containerAudio": {
+                    "containerAudioType": "MP3"
+                }  # Используем MP3
+            },
         }
-        response = requests.post(url, headers=headers, data=data, stream=True)
+
+        # Преобразование данных в JSON
+        json_data = json.dumps(data, ensure_ascii=False)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url,
+                headers=headers,
+                content=json_data,  # Используем content для передачи JSON
+            )
+
         if response.status_code == 200:
-            logger.info(f"Audio response content: OK for text: '{text[:10]}'")
+            response_json = response.json()
 
-            input_audio = io.BytesIO(response.content)
-            temp_input = tempfile.NamedTemporaryFile(
-                delete=False, suffix=".mp3"
-            )
-            temp_output = tempfile.NamedTemporaryFile(
-                delete=False, suffix=".aac"
-            )
+            # Извлечение аудиоданных
+            audio_data = response_json.get("result", {}).get("audioChunk", {}).get("data")
+            if audio_data:
+                audio_bytes = base64.b64decode(audio_data)
 
-            with open(temp_input.name, "wb") as f:
-                f.write(input_audio.read())
+                # Сохранение MP3
+                temp_mp3 = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                with open(temp_mp3.name, "wb") as audio_file:
+                    audio_file.write(audio_bytes)
+                logger.info(f"Audio saved as MP3: {temp_mp3.name}")
 
-            # Попробуем сначала считать файл как MP3
-            try:
-                subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-i",
-                        temp_input.name,
-                        "-c:a",
-                        "aac",
-                        temp_output.name,
-                    ],
-                    check=True,
-                )
-            except subprocess.CalledProcessError:
-                logger.warning(f"Failed to decode as mp3, trying as mp4")
-                # Если не удалось, пробуем считать файл как MP4
-                subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-i",
-                        temp_input.name,
-                        "-f",
-                        "mp4",
-                        "-c:a",
-                        "aac",
-                        temp_output.name,
-                    ],
-                    check=True,
-                )
+                # Конвертация в AAC
+                temp_aac = tempfile.NamedTemporaryFile(delete=False, suffix=".aac")
+                ffmpeg_command = [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    temp_mp3.name,
+                    "-c:a",
+                    "aac",
+                    temp_aac.name,
+                ]
+                subprocess.run(ffmpeg_command, check=True)
+                logger.info(f"Successfully converted MP3 to AAC: {temp_aac.name}")
 
-            with open(temp_output.name, "rb") as f:
-                return f.read()
+                # Чтение и сохранение в локальной директории
+                save_path = "saved_audio.aac"
+                with open(temp_aac.name, "rb") as f:
+                    aac_data = f.read()
+                with open(save_path, "wb") as save_file:
+                    save_file.write(aac_data)
+                logger.info(f"AAC audio saved locally at {save_path}")
 
+                encoded_audio = base64.b64encode(aac_data).decode("utf-8")
+                return encoded_audio
+
+            else:
+                logger.error("Audio data not found in the response")
         else:
-            error_message = f"Failed to synthesize speech, status code: {response.status_code}, response text: {response.text[:200]}"
-            logger.error(error_message)
-            raise Exception(error_message)
+            logger.error(
+                f"Failed to synthesize speech, status code: {response.status_code}, response text: {response.text}"
+            )
+            raise Exception(f"Failed with status code {response.status_code}")
+
     except Exception as e:
-        logger.error(f"Exception in synthesize_speech: {e}")
+        logger.error(f"Exception in synthesize_speech_httpx: {e}")
         return None
 
 

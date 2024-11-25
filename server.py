@@ -4,6 +4,7 @@ import websockets
 import json
 from crud import Postgres
 from handlers.process_message import process_user_message
+from handlers.process_message_barsik import process_user_message_barsik
 from models import User
 from utils.logging_config import get_logger
 from services.database import async_session
@@ -44,69 +45,42 @@ async def verify_token_with_auth_server(token):
         return None
 
 
-async def handle_command(action, user_id, database: Postgres):
+async def handle_command(action, user_id, database):
     """
-    Обрабатывает команду, связанную с инициализацией чата или другими действиями.
+    Обрабатывает команды от фронта, включая инициализацию чата и завершение опроса.
     """
-    # if action == "initial_chat":
-    #     try:
-    #         await delete_user_dialogue_history(user_id)
-    #
-    #         user = await database.get_entity_parameter(
-    #             User, {"userid": user_id}
-    #         )
-    #
-    #         if user:
-    #             is_registration = False
-    #         else:
-    #             is_registration = True
-    #
-    #         # Сохранить статус регистрации в Redis
-    #         await save_registration_status(user_id, is_registration)
-    #
-    #         return {
-    #             "type": "response",
-    #             "status": "success",
-    #             "action": "initial_chat",
-    #             "data": {
-    #                 "is_registration": is_registration,
-    #             },
-    #         }
-    #
-    #     except Exception as e:
-    #         logger.error(f"Error processing initial chat: {e}")
-    #         return {
-    #             "type": "response",
-    #             "status": "error",
-    #             "error": "server_error",
-    #             "message": "An internal server error occurred.",
-    #         }
-    if action == "export_stats":
+    if action == "initial_chat":
+        print(f"initial_chat1")
         try:
-            stats = await generate_statistics_file(user_id, database)
-            if not stats:
-                return {
-                    "type": "response",
-                    "status": "error",
-                    "action": "export_stats",
-                    "error": "no_stats",
-                    "message": "No stats available.",
-                }
-            return {
-                "type": "response",
-                "status": "success",
-                "action": "export_stats",
-                "data": {"file_json": stats},
-            }
+            message = {"text": "initial_chat"}
+            print(f"initial_chat2")
+            result = await process_user_message_barsik(user_id, message, database)
+            return result
         except Exception as e:
-            logger.error(f"Error generating export stats: {e}")
+            logger.error(f"Error processing initial chat: {e}")
             return {
                 "type": "response",
                 "status": "error",
-                "action": "export_stats",
-                "error": "server_error",
-                "message": "An internal server error occurred. Please try again later.",
+                "message": "Ошибка при обработке команды initial_chat.",
             }
+    elif action == "finish_chat":
+        try:
+            # Удаляем историю диалога после завершения опроса
+            logger.info(f"Deleting user dialogue history for user {user_id}")
+            await delete_user_dialogue_history(user_id)
+            return {
+                "type": "response",
+                "status": "success",
+                "message": "Чат завершён, данные сохранены.",
+            }
+        except Exception as e:
+            logger.error(f"Error finishing chat: {e}")
+            return {
+                "type": "response",
+                "status": "error",
+                "message": "Ошибка при завершении чата.",
+            }
+
 
 
 async def handle_connection(websocket, path):
@@ -180,9 +154,9 @@ async def handle_connection(websocket, path):
                     )
                     continue
 
-                # if action == "initial_chat":
-                #     response = await handle_command(action, user_id, db)
-                #     await websocket.send(json.dumps(response, ensure_ascii=False))
+                if action == "initial_chat" or action == "finish_chat":
+                    response = await handle_command(action, user_id, db)
+                    await websocket.send(json.dumps(response, ensure_ascii=False))
 
                 # Обработка команды export_stats
                 if action == "export_stats":
@@ -221,13 +195,18 @@ async def handle_connection(websocket, path):
                             fixed_text = ftfy.fix_text(message_data["text"])
                             message_data["text"] = fixed_text
 
-                        response = await process_user_message(
+                        response = await process_user_message_barsik(
                             user_id, message_data, db
                         )
-                        await websocket.send(
-                            json.dumps(response, ensure_ascii=False)
-                        )
-                        logger.info(f"Response_sent: {response}")
+                        if response:
+                            await websocket.send(
+                                json.dumps(response, ensure_ascii=False)
+                            )
+                            audio_data = response.get("data", {}).get("audio")
+                            if audio_data:
+                                logger.info(f"Response_sent: {audio_data[:100]}")
+                            else:
+                                logger.info("Response_sent: No audio data available")
                     except Exception as message_error:
                         logger.error(
                             f"Error processing user message: {message_error}"
@@ -278,6 +257,8 @@ async def main():
             8085,
             ping_interval=60,  # Интервал между пингами (в секундах)
             ping_timeout=30,  # Время ожидания ответа на пинг (в секундах)
+            write_limit=2 ** 20,  # Увеличиваем лимит записи (например, 1 MB)
+            max_queue=32,
         )
         print("WebSocket server started on ws://0.0.0.0:8085")
         await server.wait_closed()

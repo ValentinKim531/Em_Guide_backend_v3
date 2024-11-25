@@ -308,3 +308,5 @@ async def process_user_message(user_id: str, message: dict, db: Postgres):
         "action": "message",
         "data": gpt_response_content,
     }
+
+
