@@ -1,6 +1,7 @@
+import asyncio
 import json
-
 from services.audio_text_processor import process_audio_and_text
+from services.save_message_to_db import save_message_to_db
 from services.yandex_service import synthesize_speech
 from utils.logging_config import get_logger
 from utils.redis_client import (
@@ -27,13 +28,13 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
 
         # Инициализация диалога
         if message.get("text") == "initial_chat":
-            logger.info(f"initial_chat4")
             dialogue_history = [{"role": "user", "content": "Здравствуйте"}]
             await save_user_dialogue_history(user_id, dialogue_history)
 
             gpt_response = await send_to_gpt(dialogue_history, instruction=ASSISTANT4_ID)
 
             text_for_synthesis = extract_text_before_json(gpt_response)
+            asyncio.create_task(save_message_to_db(db, user_id, text_for_synthesis, False)) # noqa
             gpt_response_audio = await synthesize_speech(text_for_synthesis)
             dialogue_history.append({"role": "assistant", "content": text_for_synthesis})
 
@@ -46,10 +47,15 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
             }
         # Обычное сообщение пользователя
         user_text = await process_audio_and_text(message, user_language="ru")
+        await save_message_to_db(db, user_id, user_text, True)
         logger.info(f"user_text: {user_text}")
+
         dialogue_history.append({"role": "user", "content": user_text})
         gpt_response = await send_to_gpt(dialogue_history, instruction=ASSISTANT4_ID)
+
         text_for_synthesis = extract_text_before_json(gpt_response)
+        asyncio.create_task(save_message_to_db(db, user_id, text_for_synthesis, False))  # noqa
+
         gpt_response_audio = await synthesize_speech(text_for_synthesis)
         dialogue_history.append({"role": "assistant", "content": text_for_synthesis})
         await save_user_dialogue_history(user_id, dialogue_history)
@@ -60,7 +66,7 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
             if json_data:
                 text_for_synthesis = extract_text_before_json(gpt_response)
                 gpt_response_audio = await synthesize_speech(text_for_synthesis)
-                await save_survey_results(user_id, json_data, db)
+                asyncio.create_task(save_survey_results(user_id, json_data, db))  # noqa
                 return {
                     "type": "response",
                     "status": "success",

@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import re
 
 import ffmpeg
 import tempfile
@@ -78,6 +79,13 @@ def convert_mp3_to_aac(input_mp3, output_aac):
         print(f"Error: {e.stderr.decode('utf8')}")
 
 
+def clean_text_for_synthesis(text):
+    """
+    Удаляет лишние пробелы и переносы строк, оставляя только один пробел между словами.
+    """
+    return re.sub(r'\s+', ' ', text).strip()
+
+
 async def synthesize_speech(
     text
 ):
@@ -89,10 +97,8 @@ async def synthesize_speech(
     lang_code = "ru-RU"
 
     try:
-        logger.info(
-            f"Starting synthesis for text: '{text[:100]}', lang_code: '{lang_code}', voice: '{voice}', "
-            f"pitch_shift: {pitch_shift}, speed: {speed}, emotion: '{emotion}', volume: {volume}"
-        )
+        text = clean_text_for_synthesis(text)
+        logger.info(f"Cleaned text for synthesis: {repr(text)}")
 
         url = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
         headers = {
