@@ -52,6 +52,8 @@ async def handle_command(action, user_id, database):
     if action == "initial_chat":
         print(f"initial_chat1")
         try:
+            logger.info(f"Deleting user dialogue history for user {user_id}")
+            await delete_user_dialogue_history(user_id)
             message = {"text": "initial_chat"}
             print(f"initial_chat2")
             result = await process_user_message_barsik(user_id, message, database)

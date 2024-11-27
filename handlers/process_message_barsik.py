@@ -43,7 +43,10 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
             return {
                 "type": "response",
                 "status": "success",
-                "data": {"audio": gpt_response_audio},
+                "data": {
+                    "audio": gpt_response_audio,
+                    "is_last_message": False
+                },
             }
         # Обычное сообщение пользователя
         user_text = await process_audio_and_text(message, user_language="ru")
@@ -70,13 +73,19 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
                 return {
                     "type": "response",
                     "status": "success",
-                    "data": {"audio": gpt_response_audio},
+                    "data": {
+                        "audio": gpt_response_audio,
+                        "is_last_message": True
+                    },
                 }
 
         return {
             "type": "response",
             "status": "success",
-            "data": {"audio": gpt_response_audio},
+            "data": {
+                    "audio": gpt_response_audio,
+                    "is_last_message": False
+                },
         }
 
     except Exception as e:
