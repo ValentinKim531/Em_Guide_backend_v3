@@ -47,7 +47,7 @@ def recognize_speech(audio_content, lang="ru-RU"):
         if not YANDEX_IAM_TOKEN:
             get_iam_token()
         url = f"https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?folderId={YANDEX_FOLDER_ID}&lang={lang}"
-        headers = {"Authorization": f"Bearer {YANDEX_IAM_TOKEN}"}
+        headers = {"Authorization": f"Bearer {'t1.9euelZqbiZaMzo2Ryc-Uj87PjceXnO3rnpWaxo2LzpeVkpKak5CQnZrPzMnl8_cqOl9F-e9-MzoC_d3z92poXEX5734zOgL9zef1656Vmo3LmpvGno3HlpmQjZ2Om83P7_zF656Vmo3LmpvGno3HlpmQjZ2Om83P.8bJBIrTgy2t3C1KJLg31_-MiUzOHr8rYIvjVZfxZjkDbBEAE_zb_1xaiEetL2F7BRDaiwXiA1CGdUfdYg7gGDw'}"}
 
         response = requests.post(url, headers=headers, data=audio_content)
 
@@ -90,8 +90,8 @@ async def synthesize_speech(
     text
 ):
     voice = "marina"
-    pitch_shift = 130
-    speed = 1.2
+    pitch_shift = 400
+    speed = 1.5
     emotion = "friendly"
     volume = 0.9
     lang_code = "ru-RU"
@@ -102,7 +102,7 @@ async def synthesize_speech(
 
         url = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
         headers = {
-            "Authorization": f"Bearer {'t1.9euelZrLyZrOzo3ImYyRnpnOnM2biu3rnpWaxo2LzpeVkpKak5CQnZrPzMnl8_cKY2BF-e8FY1Iw_N3z90oRXkX57wVjUjD8zef1656Vms3Kl42Ym5KJjo_KkJaciceM7_zF656Vms3Kl42Ym5KJjo_KkJaciceM.skpOwxcnwjhV51n56w-ReIOBN2Yh9IDtpT4roZ-jH0YSMiM3oLe6l-H-OviKZG6UbTXe47IwJo-4O6yfpYphAw'}",
+            "Authorization": f"Bearer {YANDEX_IAM_TOKEN}",
             "x-folder-id": YANDEX_FOLDER_ID,
             "Content-Type": "application/json; charset=utf-8",
         }
