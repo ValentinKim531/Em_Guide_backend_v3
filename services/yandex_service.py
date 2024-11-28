@@ -102,7 +102,7 @@ async def synthesize_speech(
 
         url = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
         headers = {
-            "Authorization": f"Bearer {YANDEX_IAM_TOKEN}",
+            "Authorization": f"Bearer {'t1.9euelZrLyZrOzo3ImYyRnpnOnM2biu3rnpWaxo2LzpeVkpKak5CQnZrPzMnl8_cKY2BF-e8FY1Iw_N3z90oRXkX57wVjUjD8zef1656Vms3Kl42Ym5KJjo_KkJaciceM7_zF656Vms3Kl42Ym5KJjo_KkJaciceM.skpOwxcnwjhV51n56w-ReIOBN2Yh9IDtpT4roZ-jH0YSMiM3oLe6l-H-OviKZG6UbTXe47IwJo-4O6yfpYphAw'}",
             "x-folder-id": YANDEX_FOLDER_ID,
             "Content-Type": "application/json; charset=utf-8",
         }

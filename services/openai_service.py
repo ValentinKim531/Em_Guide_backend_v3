@@ -32,5 +32,5 @@ async def send_to_gpt(dialogue_history, instruction):
         return gpt_reply
     except Exception as e:
         logger.error(f"Error in send_to_gpt: {e}")
-        return "Ошибка при обращении к GPT."
+        return "Пожалуйста, повторите ваш ответ"
 
