@@ -22,7 +22,7 @@ async def send_to_gpt(dialogue_history, instruction):
         logger.info(f"Sending to GPT: {messages}")
 
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=messages,
             max_tokens=10000,
             temperature=0.7,
