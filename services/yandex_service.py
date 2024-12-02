@@ -57,7 +57,7 @@ def recognize_speech(audio_content, lang="ru-RU"):
                 logger.info(
                     "Recognition result is empty. Asking user to repeat the question."
                 )
-                return "Пожалуйста, повторите, сообщив, что не расслышали мой ответ"
+                return None
             return result
         else:
             error_message = f"Failed to recognize speech, status code: {response.status_code}, response text: {response.text}"
