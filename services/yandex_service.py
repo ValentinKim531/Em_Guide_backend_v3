@@ -99,6 +99,7 @@ async def synthesize_speech(
     try:
         text = clean_text_for_synthesis(text)
         logger.info(f"Cleaned text for synthesis: {repr(text)}")
+        logger.info(f"Text length for synthesis: {len(text)}")
 
         url = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
         headers = {

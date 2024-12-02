@@ -1,5 +1,7 @@
 import asyncio
 import json
+
+from constants.assistants_answers_var import audio_code_repeat_request
 from services.audio_text_processor import process_audio_and_text
 from services.save_message_to_db import save_message_to_db
 from services.yandex_service import synthesize_speech
@@ -50,21 +52,26 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
             }
         # Обычное сообщение пользователя
         user_text = await process_audio_and_text(message, user_language="ru")
-        await save_message_to_db(db, user_id, user_text, True)
-        logger.info(f"user_text: {user_text}")
+        if user_text:
+            asyncio.create_task(save_message_to_db(db, user_id, user_text, True)) # noqa
+            logger.info(f"user_text: {user_text}")
 
-        dialogue_history.append({"role": "user", "content": user_text})
-        gpt_response = await send_to_gpt(dialogue_history, instruction=ASSISTANT4_ID)
+            dialogue_history.append({"role": "user", "content": user_text})
+            gpt_response = await send_to_gpt(dialogue_history, instruction=ASSISTANT4_ID)
 
-        text_for_synthesis = extract_text_before_json(gpt_response)
-        asyncio.create_task(save_message_to_db(db, user_id, text_for_synthesis, False))  # noqa
+            text_for_synthesis = extract_text_before_json(gpt_response)
+            asyncio.create_task(save_message_to_db(db, user_id, text_for_synthesis, False))  # noqa
 
-        gpt_response_audio = await synthesize_speech(text_for_synthesis)
-        dialogue_history.append({"role": "assistant", "content": text_for_synthesis})
-        await save_user_dialogue_history(user_id, dialogue_history)
+            gpt_response_audio = await synthesize_speech(text_for_synthesis)
+            asyncio.create_task(dialogue_history.append({"role": "assistant", "content": text_for_synthesis})) # noqa
+            asyncio.create_task(save_user_dialogue_history(user_id, dialogue_history)) # noqa
+        else:
+            gpt_response = None
+            gpt_response_audio = audio_code_repeat_request
+            logger.info(f"gpt_response_audio_11: {gpt_response_audio}")
 
         # Проверяем, есть ли JSON в ответе от GPT
-        if "```json" in gpt_response:
+        if gpt_response and "```json" in gpt_response:
             json_data = extract_json_from_response(gpt_response)
             if json_data:
                 text_for_synthesis = extract_text_before_json(gpt_response)
