@@ -1,7 +1,6 @@
 import asyncio
 import json
-
-from constants.assistants_answers_var import audio_code_repeat_request
+from constants.assistants_answers_var import audio_code_repeat_request, audio_code_first_question, text_code_first_question
 from services.audio_text_processor import process_audio_and_text
 from services.save_message_to_db import save_message_to_db
 from services.yandex_service import synthesize_speech
@@ -22,7 +21,6 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
     Обрабатывает сообщение пользователя, поддерживает диалог с GPT и сохраняет результаты опроса.
     """
     try:
-        logger.info(f"initial_chat3")
         logger.info(f"message_text_from_server: {message}")
 
         dialogue_history = await get_user_dialogue_history(user_id)
@@ -30,17 +28,18 @@ async def process_user_message_barsik(user_id: str, message: dict, db):
 
         # Инициализация диалога
         if message.get("text") == "initial_chat":
-            dialogue_history = [{"role": "user", "content": "Здравствуйте"}]
-            await save_user_dialogue_history(user_id, dialogue_history)
+            # dialogue_history = [{"role": "user", "content": "Здравствуйте"}]
+            # await save_user_dialogue_history(user_id, dialogue_history)
 
-            gpt_response = await send_to_gpt(dialogue_history, instruction=ASSISTANT4_ID)
+            # gpt_response = await send_to_gpt(dialogue_history, instruction=ASSISTANT4_ID)
+            gpt_response_audio = audio_code_first_question
 
-            text_for_synthesis = extract_text_before_json(gpt_response)
-            asyncio.create_task(save_message_to_db(db, user_id, text_for_synthesis, False)) # noqa
-            gpt_response_audio = await synthesize_speech(text_for_synthesis)
-            dialogue_history.append({"role": "assistant", "content": text_for_synthesis})
+            # text_for_synthesis = extract_text_before_json(gpt_response)
+            asyncio.create_task(save_message_to_db(db, user_id, text_code_first_question, False)) # noqa
+            # gpt_response_audio = await synthesize_speech(text_for_synthesis)
+            dialogue_history.append({"role": "assistant", "content": text_code_first_question})
 
-            await save_user_dialogue_history(user_id, dialogue_history)
+            asyncio.create_task(save_user_dialogue_history(user_id, dialogue_history)) # noqa
 
             return {
                 "type": "response",
