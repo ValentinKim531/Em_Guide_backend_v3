@@ -143,3 +143,24 @@ async def update_survey_data(db: Postgres, user_id: str, message: dict):
 
     except Exception as e:
         logger.error(f"Error updating survey data: {e}")
+
+
+async def save_survey_results(user_id: str, data: dict, db):
+    """
+    Сохраняет результаты опроса в базу данных.
+    """
+    try:
+        survey_data = {
+            "userid": user_id,
+            "headache_today": data.get("headache_today"),
+            "medicament_today": data.get("medicament_today"),
+            "pain_intensity": data.get("pain_intensity") if isinstance(data.get("pain_intensity"), str) else str(data.get("pain_intensity")),
+            "pain_area": data.get("pain_area"),
+            "area_detail": data.get("area_detail"),
+            "pain_type": data.get("pain_type"),
+            "comments": data.get("comments"),
+        }
+        await db.add_entity(survey_data, Survey)
+        logger.info(f"Survey results saved for user {user_id}")
+    except Exception as e:
+        logger.error(f"Error saving survey results to database: {e}")

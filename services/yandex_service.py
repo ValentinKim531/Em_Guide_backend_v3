@@ -7,8 +7,11 @@ import ffmpeg
 import tempfile
 import httpx
 import requests
+
+from services.openai_service import send_to_gpt
+from utils.extract_from_json_message import extract_text_before_json
 from utils.logging_config import get_logger
-from utils.config import YANDEX_OAUTH_TOKEN, YANDEX_FOLDER_ID
+from utils.config import YANDEX_OAUTH_TOKEN, YANDEX_FOLDER_ID, ASSISTANT4_ID
 import subprocess
 import io
 
@@ -97,9 +100,6 @@ async def synthesize_speech(
     lang_code = "ru-RU"
 
     try:
-        text = clean_text_for_synthesis(text)
-        logger.info(f"Cleaned text for synthesis: {repr(text)}")
-        logger.info(f"Text length for synthesis: {len(text)}")
 
         url = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
         headers = {
@@ -184,6 +184,48 @@ async def synthesize_speech(
     except Exception as e:
         logger.error(f"Exception in synthesize_speech_httpx: {e}")
         return None
+
+
+async def synthesize_speech_with_check(text, dialogue_history):
+    """
+    Проверяет длину текста перед синтезом. Если текст превышает лимит, запрашивает у GPT сокращённую версию.
+    """
+    MAX_LENGTH = 249
+    MAX_ATTEMPTS = 3  # Максимальное количество попыток сокращения
+
+    text = clean_text_for_synthesis(text)
+    logger.info(f"Cleaned text for synthesis: {repr(text)}")
+    logger.info(f"Text length for synthesis: {len(text)}")
+
+    attempt = 0
+    while len(text) > MAX_LENGTH and attempt < MAX_ATTEMPTS:
+        attempt += 1
+        logger.warning(
+            f"Attempt {attempt}: Text exceeds max length ({len(text)} > {MAX_LENGTH}). Requesting GPT to shorten it.")
+
+        dialogue_history.append({
+            "role": "user",
+            "content": "Ваше последнее сообщение превысило допустимый лимит 250 символов для синтеза речи. Сократите его на треть, сохранив суть и повторите снова."
+        })
+        shortened_response = await send_to_gpt(dialogue_history, instruction=ASSISTANT4_ID)
+
+        # Извлечение текста и повторная проверка
+        text_before_json = extract_text_before_json(shortened_response)
+        text = clean_text_for_synthesis(text_before_json)
+        logger.info(f"Cleaned text after shortening attempt {attempt}: {repr(text)}")
+        logger.info(f"Text length after shortening attempt {attempt}: {len(text)}")
+
+    # Если после всех попыток текст всё ещё слишком длинный
+    if len(text) > MAX_LENGTH:
+        logger.error(f"Text still exceeds max length after {MAX_ATTEMPTS} attempts. Fallback logic may be needed.")
+        raise ValueError("Не удалось сократить текст до допустимой длины после нескольких попыток.")
+
+    try:
+        # Выполняем синтез с проверенным текстом
+        return await synthesize_speech(text)
+    except Exception as e:
+        logger.error(f"Error in synthesis: {e}")
+        raise e  # Перехват ошибки на более высоком уровне, если потребуется
 
 
 def translate_text(text, source_lang="ru", target_lang="kk"):
